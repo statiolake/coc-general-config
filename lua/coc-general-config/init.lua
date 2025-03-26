@@ -42,6 +42,28 @@ function M.get(path)
     end
   end
 
+  -- Extract settings based on the path
+  if path then
+    local result = {}
+    local path_pattern = "^" .. vim.pesc(path) .. "%.(.+)$"
+
+    for key, value in pairs(merged_config) do
+      if key == path then
+        return value -- Exact match
+      end
+
+      local stripped_key = key:match(path_pattern)
+      if stripped_key then
+        result[stripped_key] = value
+      end
+    end
+
+    if next(result) then
+      return result
+    end
+    return nil -- No matches found for the path
+  end
+
   return merged_config
 end
 
