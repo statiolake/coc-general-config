@@ -16,7 +16,7 @@ local function merge_configs(high_priority, low_priority)
   return result
 end
 
-function M.get_config(path)
+function M.get(path)
   -- Check if coc.nvim is initialized
   if vim.g.coc_service_initialized == 1 then
     return vim.fn["coc#util#get_config"](path)
@@ -43,6 +43,19 @@ function M.get_config(path)
   end
 
   return merged_config
+end
+
+function M.set(path, value)
+  -- coc#config() is always available
+  return vim.fn['coc#config'](path, value)
+end
+
+function M.access(path, value)
+  if value == nil then
+    return M.get(path)
+  else
+    return M.set(path, value)
+  end
 end
 
 return M
