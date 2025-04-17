@@ -113,34 +113,13 @@ function M.get(path)
 end
 
 function M.set(path, value)
-  -- coc#config() is always available
   if vim.g.coc_service_initialized == 1 then
+    -- Use coc#config() if available
     return vim.fn['coc#config'](path, value)
   end
 
-  -- Parse configurations manually
   local user_config = vim.g.coc_user_config or {}
-
-  -- Split path into parts
-  local parts = {}
-  for part in path:gmatch '[^%.]+' do
-    table.insert(parts, part)
-  end
-
-  -- Create nested structure
-  local current = user_config
-  for i = 1, #parts - 1 do
-    local part = parts[i]
-    if type(current[part]) ~= 'table' then
-      current[part] = {}
-    end
-    current = current[part]
-  end
-
-  -- Set value at final level
-  current[parts[#parts]] = value
-
-  -- Update global variable
+  user_config[path] = value
   vim.g.coc_user_config = user_config
   return true
 end
@@ -152,5 +131,7 @@ function M.access(path, value)
     return M.set(path, value)
   end
 end
+
+M.set('foo.bar', 'baz')
 
 return M
