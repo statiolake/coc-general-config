@@ -10,6 +10,33 @@ local function read_json_file(filepath)
   return vim.fn.json_decode(content)
 end
 
+local function unflatten_keys(tbl)
+  -- テーブルでない場合は変換不要
+  if type(tbl) ~= 'table' then
+    return tbl
+  end
+
+  local result = {}
+  for k, v in pairs(tbl) do
+    local parts = {}
+    -- キーをドットで分割
+    for part in k:gmatch '[^%.]+' do
+      table.insert(parts, part)
+    end
+
+    -- 入れ子構造を構築
+    local current = result
+    for i = 1, #parts - 1 do
+      local part = parts[i]
+      current[part] = current[part] or {}
+      current = current[part]
+    end
+    current[parts[#parts]] = v
+  end
+
+  return result
+end
+
 local function merge_configs(high_priority, low_priority)
   local function deep_merge(target, source)
     if type(source) ~= 'table' then
@@ -34,14 +61,18 @@ function M.get(path)
   end
 
   -- Parse configurations manually
-  local user_config = vim.g.coc_user_config or {}
+  local user_config = unflatten_keys(vim.g.coc_user_config) or {}
+
   local global_config_path = vim.g.coc_config_home
       and (vim.g.coc_config_home .. '/coc-settings.json')
     or (vim.fn.stdpath 'config' .. '/coc-settings.json')
-  local workspace_config_path = '.vim/coc-settings.json'
+  local global_config = unflatten_keys(read_json_file(global_config_path))
+    or {}
 
-  local global_config = read_json_file(global_config_path) or {}
-  local workspace_config = read_json_file(workspace_config_path) or {}
+  local workspace_config_path = '.vim/coc-settings.json'
+  local workspace_config = unflatten_keys(
+    read_json_file(workspace_config_path)
+  ) or {}
 
   -- Merge configurations: user_config > workspace_config > global_config
   local merged_config = global_config
@@ -54,8 +85,6 @@ function M.get(path)
       merged_config[key] = nil
     end
   end
-
-  vim.notify 'parts'
 
   -- Extract settings based on the path
   if not path then
@@ -85,7 +114,35 @@ end
 
 function M.set(path, value)
   -- coc#config() is always available
-  return vim.fn['coc#config'](path, value)
+  if vim.g.coc_service_initialized == 1 then
+    return vim.fn['coc#config'](path, value)
+  end
+
+  -- Parse configurations manually
+  local user_config = vim.g.coc_user_config or {}
+
+  -- Split path into parts
+  local parts = {}
+  for part in path:gmatch '[^%.]+' do
+    table.insert(parts, part)
+  end
+
+  -- Create nested structure
+  local current = user_config
+  for i = 1, #parts - 1 do
+    local part = parts[i]
+    if type(current[part]) ~= 'table' then
+      current[part] = {}
+    end
+    current = current[part]
+  end
+
+  -- Set value at final level
+  current[parts[#parts]] = value
+
+  -- Update global variable
+  vim.g.coc_user_config = user_config
+  return true
 end
 
 function M.access(path, value)
