@@ -7,7 +7,8 @@ local function read_json_file(filepath)
   end
   local content = file:read '*a'
   file:close()
-  return vim.fn.json_decode(content)
+  local ok, decoded = pcall(vim.fn.json_decode, content)
+  return ok and decoded or nil
 end
 
 local function unflatten_keys(tbl)
@@ -61,18 +62,17 @@ function M.get(path)
   end
 
   -- Parse configurations manually
-  local user_config = unflatten_keys(vim.g.coc_user_config) or {}
+  local user_config = unflatten_keys(vim.g.coc_user_config or {})
 
   local global_config_path = vim.g.coc_config_home
       and (vim.g.coc_config_home .. '/coc-settings.json')
     or (vim.fn.stdpath 'config' .. '/coc-settings.json')
-  local global_config = unflatten_keys(read_json_file(global_config_path))
-    or {}
+  local global_config =
+    unflatten_keys(read_json_file(global_config_path) or {})
 
   local workspace_config_path = '.vim/coc-settings.json'
-  local workspace_config = unflatten_keys(
-    read_json_file(workspace_config_path)
-  ) or {}
+  local workspace_config =
+    unflatten_keys(read_json_file(workspace_config_path) or {})
 
   -- Merge configurations: user_config > workspace_config > global_config
   local merged_config = global_config
